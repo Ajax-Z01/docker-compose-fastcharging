@@ -1,0 +1,120 @@
+version: '3.8'
+
+services:
+  mysqldb-user:
+    image: mysql:latest
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=noroot
+      - MYSQL_DATABASE=fc_microservices_user
+    ports:
+      - 3306:3306
+    volumes:
+      - db-user:/var/lib/mysql
+
+  mysqldb-vehicle:
+    image: mysql:latest
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=noroot
+      - MYSQL_DATABASE=fc_microservices_vehicle
+    ports:
+      - 3307:3306
+    volumes:
+      - db-vehicle:/var/lib/mysql
+
+  eureka-server:
+    image: fastcharging/eurekaserver:latest
+    hostname: eureka-server
+    container_name: eureka-server
+    environment:
+      - EUREKA_SERVER_PORT=8761
+      - EUREKA_SERVER_HOSTNAME=eureka-server
+      - EUREKA_SERVER_DEFAULT_ZONE=http://eureka-server:8761/eureka
+      - EUREKA_SERVER_REGISTER_WITH_EUREKA=false
+      - EUREKA_SERVER_FETCH_REGISTRY=false
+      - EUREKA_SERVER_INSTANCE_HOSTNAME=eureka-server
+    restart: always
+    ports:
+      - 8761:8761
+
+  apigateway:
+    depends_on:
+      - mysqldb-user
+    links:
+      - eureka-server
+    image: fastcharging/apigateway:latest
+    hostname: apigateway
+    container_name: apigateway
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysqldb-user:3306/fc_microservices_user?useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=noroot
+      - SPRING_JPA_DATABASE-PLATFORM=org.hibernate.dialect.MySQL57Dialect
+      - SPRING_JPA_HIBERNATE_DDL-AUTO=create-drop
+      - SERVER_PORT=8001
+      - eureka.client.serviceUrl.defaultZone=http://eureka-server:8761/eureka
+    ports:
+      - 8000:8000
+
+  auth-service:
+    depends_on:
+      - mysqldb-user
+    links:
+      - eureka-server
+    image: fastcharging/auth-service:latest
+    hostname: auth-service
+    container_name: auth-service
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysqldb-user:3306/fc_microservices_user?useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=noroot
+      - SPRING_JPA_DATABASE-PLATFORM=org.hibernate.dialect.MySQL57Dialect
+      - SPRING_JPA_HIBERNATE_DDL-AUTO=create-drop
+      - SERVER_PORT=8001
+      - eureka.client.serviceUrl.defaultZone=http://eureka-server:8761/eureka
+    ports:
+      - 8001:8001
+
+  user-service:
+    depends_on:
+      - mysqldb-user
+    links:
+      - eureka-server
+    image: fastcharging/user-service:latest
+    hostname: user-service
+    container_name: user-service
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysqldb-user:3306/fc_microservices_user?useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=noroot
+      - SPRING_JPA_DATABASE-PLATFORM=org.hibernate.dialect.MySQL57Dialect
+      - SPRING_JPA_HIBERNATE_DDL-AUTO=create-drop
+      - SERVER_PORT=8002
+      - eureka.client.serviceUrl.defaultZone=http://eureka-server:8761/eureka
+    ports:
+      - 8002:8002
+
+
+  vehicle-service:
+    depends_on:
+      - mysqldb-user
+    links:
+      - eureka-server
+    image: fastcharging/vehicle-service:latest
+    hostname: vehicle-service
+    container_name: vehicle-service
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysqldb-vehicle:3306/fc_microservices_vehicle?useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=noroot
+      - SPRING_JPA_DATABASE-PLATFORM=org.hibernate.dialect.MySQL57Dialect
+      - SPRING_JPA_HIBERNATE_DDL-AUTO=create-drop
+      - SERVER_PORT=8003
+      - eureka.client.serviceUrl.defaultZone=http://eureka-server:8761/eureka
+    ports:
+      - 8003:8003
+      
+volumes:
+  db-user:
+  db-vehicle:
